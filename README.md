@@ -27,6 +27,8 @@ The key is read **only server-side** and is sent only to `api.sportradar.com` in
 
 Already paying for Sportradar production access? Set `SPORTRADAR_ACCESS_LEVEL=production`.
 
+**Zero-config deployments:** a free-trial fallback key is embedded in `src/lib/providers/sportradar/index.ts`, so the app works out of the box with no env vars at all (e.g. on Vercel without any configuration). A `SPORTRADAR_API_KEY` env var always takes precedence when set, and `SPORTRADAR_DISABLE_EMBEDDED_KEY=1` turns the fallback off. Note the embedded key is visible in this repository — fine for a free trial key; rotate it in the Sportradar marketplace if it's ever abused.
+
 ## Troubleshooting: "Provider rejected the API key (HTTP 403)"
 
 A 403 means your deployment *is* sending a key to `api.sportradar.com`, but Sportradar refuses it. Work through these in order:

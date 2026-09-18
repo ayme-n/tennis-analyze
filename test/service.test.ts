@@ -89,8 +89,10 @@ describe("input validation (no fabrication on bad input)", () => {
 
   it("refuses auto mode when the provider is not configured (never silent sample data)", async () => {
     delete process.env.SPORTRADAR_API_KEY;
+    process.env.SPORTRADAR_DISABLE_EMBEDDED_KEY = "1";
     await expect(buildPrepResponse({ provider: "auto", playerAId: "x", playerBId: "y" })).rejects.toMatchObject({
       code: "not_configured",
     });
+    delete process.env.SPORTRADAR_DISABLE_EMBEDDED_KEY;
   });
 });

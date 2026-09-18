@@ -65,10 +65,18 @@ afterEach(() => {
 describe("configuration and failure modes", () => {
   it("reports not-configured status without an API key and refuses requests", async () => {
     delete process.env.SPORTRADAR_API_KEY;
+    process.env.SPORTRADAR_DISABLE_EMBEDDED_KEY = "1";
     const p = new SportradarProvider();
     expect(p.connected).toBe(false);
     await expect(p.status()).resolves.toMatchObject({ connected: false, detail: expect.stringContaining("not connected") });
     await expect(p.searchPlayers("sinner")).rejects.toMatchObject({ code: "not_configured" });
+    delete process.env.SPORTRADAR_DISABLE_EMBEDDED_KEY;
+  });
+
+  it("falls back to the embedded key when no env key is set", () => {
+    delete process.env.SPORTRADAR_API_KEY;
+    const p = new SportradarProvider();
+    expect(p.connected).toBe(true);
   });
 
   it("maps 401/403 to auth_failed without retrying", async () => {

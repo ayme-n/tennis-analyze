@@ -24,6 +24,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.SPORTRADAR_API_KEY;
   delete process.env.SPORTRADAR_ACCESS_LEVEL;
+  delete process.env.SPORTRADAR_DISABLE_EMBEDDED_KEY;
 });
 
 describe("API key hygiene", () => {
@@ -123,6 +124,7 @@ describe("provider diagnosis", () => {
 
   it("no key: not connected, and probe requests do not hit the network", async () => {
     delete process.env.SPORTRADAR_API_KEY;
+    process.env.SPORTRADAR_DISABLE_EMBEDDED_KEY = "1";
     vi.stubGlobal("fetch", vi.fn());
     const p = new SportradarProvider();
     const d = await p.diagnose(true);

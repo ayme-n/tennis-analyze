@@ -59,9 +59,22 @@ export function sanitizeApiKey(raw: string | undefined | null): string {
   return k.replace(/\s+/g, "");
 }
 
+/**
+ * Owner-approved embedded fallback key (free trial tier) so the app works with
+ * no deployment configuration at all (e.g. on Vercel without env vars).
+ * A SPORTRADAR_API_KEY env var, when set, always takes precedence; set
+ * SPORTRADAR_DISABLE_EMBEDDED_KEY=1 to turn the fallback off entirely.
+ * SECURITY NOTE: this key is visible in the repository — acceptable for a free
+ * trial key; rotate it in the Sportradar marketplace if it is ever abused.
+ */
+const EMBEDDED_FALLBACK_KEY = "i5rkySdJ2NPqQWJMahAsOqAVvXpErQkh7qBN8rps";
+
 export function loadSportradarConfig(): ClientConfig {
+  const envKey = sanitizeApiKey(process.env.SPORTRADAR_API_KEY);
+  const embeddedDisabled =
+    process.env.SPORTRADAR_DISABLE_EMBEDDED_KEY === "1" || process.env.SPORTRADAR_DISABLE_EMBEDDED_KEY === "true";
   return {
-    apiKey: sanitizeApiKey(process.env.SPORTRADAR_API_KEY),
+    apiKey: envKey || (embeddedDisabled ? "" : EMBEDDED_FALLBACK_KEY),
     accessLevel: (process.env.SPORTRADAR_ACCESS_LEVEL || "trial").trim().toLowerCase() === "production" ||
       (process.env.SPORTRADAR_ACCESS_LEVEL || "").trim().toLowerCase() === "prod"
       ? "production"
