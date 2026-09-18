@@ -238,6 +238,46 @@ export function seasonInfoPayload(surface: string) {
   };
 }
 
+/** B's own match list: one hard win w/ stats + one clay loss without stats (exercises missing-stat paths). */
+export function summariesPayloadForB() {
+  return {
+    summaries: [
+      summaryItem({
+        id: "sr:sport_event:b1",
+        startTime: "2026-08-24T19:00:00+00:00",
+        homeId: PLAYER_B.id, awayId: PLAYER_C.id, homeName: PLAYER_B.name, awayName: PLAYER_C.name,
+        level: "atp_500", seasonId: "sr:season:h1", winnerId: PLAYER_B.id,
+        sets: [{ n: 1, h: 6, a: 7, ht: 6, at: 8 }, { n: 2, h: 6, a: 2 }, { n: 3, h: 6, a: 4 }],
+        statsHome: { aces: 11, breakpoints_won: 4, total_breakpoints: 6, double_faults: 3, first_serve_points_won: 33, first_serve_successful: 44, second_serve_points_won: 12, second_serve_successful: 24, points_won: 95, games_won: 18, service_games_won: 12 },
+        statsAway: { aces: 2, breakpoints_won: 2, total_breakpoints: 5, double_faults: 5, first_serve_points_won: 25, first_serve_successful: 40, second_serve_points_won: 9, second_serve_successful: 18, points_won: 80, games_won: 13 },
+      }),
+      summaryItem({
+        id: "sr:sport_event:b2",
+        startTime: "2026-05-30T11:00:00+00:00",
+        homeId: PLAYER_C.id, awayId: PLAYER_B.id, homeName: PLAYER_C.name, awayName: PLAYER_B.name,
+        level: "grand_slam", seasonId: "sr:season:c1", winnerId: PLAYER_C.id,
+        sets: [{ n: 1, h: 6, a: 3 }, { n: 2, h: 4, a: 6 }, { n: 3, h: 6, a: 2 }, { n: 4, h: 6, a: 3 }],
+        bestOf: 5,
+        statsHome: null, statsAway: null,
+      }),
+    ],
+  };
+}
+
+export function profilePayloadB() {
+  return {
+    competitor: { id: PLAYER_B.id, name: PLAYER_B.name, country: "Germany", country_code: PLAYER_B.cc, gender: "male", abbreviation: "ZVE" },
+    info: { date_of_birth: "1997-04-20", handedness: "right", height: 198, weight: 90 },
+    competitor_rankings: [{ competitor_id: PLAYER_B.id, name: "ATP", rank: 2, movement: 1, points: 6030, type: "singles", race_ranking: false }],
+    periods: [
+      {
+        year: 2026,
+        surfaces: [{ type: "hardcourt_outdoor", statistics: { competitions_played: 5, competitions_won: 1, matches_played: 18, matches_won: 12 } }],
+      },
+    ],
+  };
+}
+
 export function versusPayload() {
   return {
     summaries: [],
