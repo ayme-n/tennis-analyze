@@ -38,6 +38,17 @@ A 403 means your deployment *is* sending a key to `api.sportradar.com`, but Spor
 5. **Vercel specifics.** Add the vars under *Project Settings → Environment Variables* for the right scope (Production/Preview), then **create a new deployment** — env vars are injected at deploy time, so the previous deployment keeps running without them.
 6. **HTTP 429 instead of 403?** The key is accepted but the trial quota is exhausted; it resets automatically after the quota window.
 
+## Troubleshooting: search finds no players (even famous ones)
+
+Player search works against the cached ATP/WTA rankings directory. If every name returns nothing:
+
+1. Click **🧹 Clear cache & re-test** in the header. It drops all cached provider data and runs a fresh live probe that also reports how many players were parsed from the rankings feed:
+   - `Player directory: N (>0) players ✓` → the feed is healthy; the name you typed is simply not in the current ATP/WTA rankings (try the full or last name; players outside the ranking feeds can be added via `EXTRA_PLAYER_IDS`).
+   - `Player directory: 0 players ✗` → the provider answered, but the payload didn't parse into players; the reported top-level keys pinpoint the shape mismatch.
+   - `HTTP 403` → see the section above.
+2. You can also open `GET /api/players/search?q=sinner&debug=1` directly — it returns the directory size and sample names alongside the results.
+3. Empty rankings responses are never cached, so a one-off bad response can no longer lock the search into "no players found" for hours.
+
 ## Run it
 
 ```bash

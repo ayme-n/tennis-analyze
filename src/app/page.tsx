@@ -20,7 +20,13 @@ interface DiagnosisInfo {
   keyMasked: string;
   accessLevel: string;
   endpoint: string;
-  probe?: { ok: boolean; httpStatus: number | null; message: string };
+  probe?: {
+    ok: boolean;
+    httpStatus: number | null;
+    message: string;
+    directoryPlayers?: number | null;
+    payloadKeys?: string[];
+  };
 }
 
 function SegRow({
@@ -81,10 +87,10 @@ export default function Home() {
       .catch(() => setStatus({ connected: false, detail: "status check failed", label: "" }));
   }, []);
 
-  const testKey = useCallback(async () => {
+  const runDiagnosis = useCallback(async (clearCache: boolean) => {
     setProbing(true);
     try {
-      const r = await fetch("/api/status?probe=1");
+      const r = await fetch(clearCache ? "/api/status?probe=1&clearCache=1" : "/api/status?probe=1");
       const d = await r.json();
       setDiagnosis((d.diagnosis as DiagnosisInfo) ?? null);
     } catch {
@@ -99,6 +105,8 @@ export default function Home() {
       setProbing(false);
     }
   }, []);
+  const testKey = useCallback(() => void runDiagnosis(false), [runDiagnosis]);
+  const clearCacheAndTest = useCallback(() => void runDiagnosis(true), [runDiagnosis]);
 
   const fetchPrep = useCallback(
     async (refresh: boolean) => {
@@ -219,9 +227,14 @@ export default function Home() {
           {demo ? "⚠ DEMO — NOT REAL MATCH DATA" : status === null ? "checking provider…" : status.connected ? `● ${status.label}` : "○ Data provider not connected"}
         </span>
         {status?.connected && !demo && (
-          <button className="btn" onClick={() => void testKey()} disabled={probing} title="Shows which key/access level this deployment uses and fires one live request to the provider.">
-            {probing ? "Testing key…" : "🔍 Test API key"}
-          </button>
+          <>
+            <button className="btn" onClick={testKey} disabled={probing} title="Shows which key/access level this deployment uses and fires one live request to the provider.">
+              {probing ? "Testing…" : "🔍 Test API key"}
+            </button>
+            <button className="btn" onClick={clearCacheAndTest} disabled={probing} title="Drops all cached provider data, then re-tests. Use this if search stopped finding players.">
+              🧹 Clear cache &amp; re-test
+            </button>
+          </>
         )}
         <span className="spacer" />
         <label className="checkline" style={{ marginTop: 0 }} title="Synthetic data for trying the UI. Never used automatically.">
@@ -254,6 +267,19 @@ export default function Home() {
           {diagnosis.probe && (
             <div style={{ marginTop: 6 }}>
               Live probe: <b>{diagnosis.probe.httpStatus !== null ? `HTTP ${diagnosis.probe.httpStatus}` : "no response"}</b> — {diagnosis.probe.message}
+              {diagnosis.probe.directoryPlayers !== undefined && diagnosis.probe.directoryPlayers !== null && (
+                <>
+                  {" "}
+                  Player directory: <b>{diagnosis.probe.directoryPlayers}</b> player(s) parsed from the rankings feed
+                  {diagnosis.probe.directoryPlayers > 0 ? " ✓" : " ✗ — search cannot find anyone until this is > 0"}.
+                </>
+              )}
+              {diagnosis.probe.directoryPlayers === 0 && diagnosis.probe.payloadKeys && diagnosis.probe.payloadKeys.length > 0 && (
+                <div style={{ marginTop: 4 }}>
+                  Unexpected payload shape — top-level keys: <code>{diagnosis.probe.payloadKeys.join(", ")}</code>
+                </div>
+              )}
+              {diagnosis.probe.directoryPlayers === null && <div style={{ marginTop: 4 }}>The provider answered HTTP 200 but not with JSON.</div>}
             </div>
           )}
           {!diagnosis.probe && (

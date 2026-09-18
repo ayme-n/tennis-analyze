@@ -172,7 +172,15 @@ export interface ProviderDiagnosis {
   /** The exact provider endpoint URL a request would hit (contains no secret). */
   endpoint: string;
   /** Present only when a live probe was requested. */
-  probe?: { ok: boolean; httpStatus: number | null; message: string };
+  probe?: {
+    ok: boolean;
+    httpStatus: number | null;
+    message: string;
+    /** Players parsed from the rankings feed when the probe succeeded (null if not JSON). */
+    directoryPlayers?: number | null;
+    /** Top-level payload keys when 0 players parsed — a shape-mismatch hint. */
+    payloadKeys?: string[];
+  };
 }
 
 /** The provider contract. Implementations: Sportradar (real), Demo (synthetic). */
@@ -183,6 +191,8 @@ export interface TennisDataProvider {
   status(): Promise<{ connected: boolean; detail: string }>;
   /** Inspect the live configuration; with `probe` also perform one real request. */
   diagnose?(probe?: boolean): Promise<ProviderDiagnosis>;
+  /** Size + sample of the searchable player directory (debug aid). */
+  directoryStats?(): Promise<{ size: number; sample: string[] }>;
   searchPlayers(query: string): Promise<DirectoryPlayer[]>;
   getPlayerProfile(id: string): Promise<PlayerProfile>;
   getRecentMatches(id: string): Promise<{ matches: NormalizedMatch[]; traces: SourceTrace[] }>;

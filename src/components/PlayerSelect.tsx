@@ -122,7 +122,11 @@ export default function PlayerSelect({ label, demo, value, disabled, onChange }:
           {loading && <div className="empty">searching…</div>}
           {error && <div className="empty">{error}</div>}
           {!loading && !error && options.length === 0 && (
-            <div className="empty">No ranked singles players match “{q}”. Try full or last name.</div>
+            <div className="empty">
+              No ranked singles players match “{q}”. Try full or last name. If even well-known players return nothing,
+              use <b>🔍 Test API key</b> / <b>🧹 Clear cache &amp; re-test</b> in the header. Players outside the
+              ranking feeds can be added via the EXTRA_PLAYER_IDS env var.
+            </div>
           )}
           {options.map((p, i) => (
             <button

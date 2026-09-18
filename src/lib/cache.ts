@@ -71,26 +71,39 @@ export async function cacheSet<T>(key: string, value: T, ttlMs: number): Promise
   mem.set(key, entry as CacheEntry);
   if (await ensureDir()) {
     const payload = serialize(entry);
-    writing = writing.then(() => fs.writeFile(fileFor(key), payload, "utf8").catch(() => undefined));
+    // Guard: if the key was invalidated (or replaced) between queueing and
+    // executing this write, skip it — otherwise a stale file could resurrect
+    // an entry that was supposed to be gone.
+    writing = writing.then(() =>
+      mem.get(key) === (entry as CacheEntry)
+        ? fs.writeFile(fileFor(key), payload, "utf8").catch(() => undefined)
+        : undefined,
+    );
   }
   return entry;
 }
 
 /** Drop entries whose key matches the predicate (memory + disk). */
 export async function cacheInvalidate(predicate: (key: string) => boolean): Promise<number> {
-  let n = 0;
+  const doomed: string[] = [];
   for (const k of [...mem.keys()]) {
     if (predicate(k)) {
       mem.delete(k);
-      n += 1;
-      try {
-        await fs.unlink(fileFor(k));
-      } catch {
-        /* ok */
-      }
+      doomed.push(k);
     }
   }
-  return n;
+  // Let already-queued disk writes flush first (writes for invalidated keys are
+  // skipped by cacheSet's guard); only then unlink, so a pending write can't
+  // resurrect an entry after we removed its file.
+  await writing;
+  for (const k of doomed) {
+    try {
+      await fs.unlink(fileFor(k));
+    } catch {
+      /* ok */
+    }
+  }
+  return doomed.length;
 }
 
 /**

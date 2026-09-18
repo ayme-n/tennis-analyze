@@ -128,7 +128,24 @@ export class SportradarProvider implements TennisDataProvider {
           headers: { accept: "application/json", "x-api-key": this.cfg.apiKey },
           signal: ctrl.signal,
         });
-        out.probe = { ok: res.ok, httpStatus: res.status, message: interpretProbe(res.status) };
+        const probe: NonNullable<ProviderDiagnosis["probe"]> = {
+          ok: res.ok,
+          httpStatus: res.status,
+          message: interpretProbe(res.status),
+        };
+        if (res.ok) {
+          try {
+            const payload: unknown = await res.json();
+            const dir = normalizeRankings(payload);
+            probe.directoryPlayers = dir.players.length;
+            if (dir.players.length === 0 && payload && typeof payload === "object" && !Array.isArray(payload)) {
+              probe.payloadKeys = Object.keys(payload as Record<string, unknown>);
+            }
+          } catch {
+            probe.directoryPlayers = null; // 200 but not JSON — report as-is
+          }
+        }
+        out.probe = probe;
       } catch (err) {
         out.probe = {
           ok: false,
@@ -243,10 +260,24 @@ export class SportradarProvider implements TennisDataProvider {
   // ------------------------------------------------------------- endpoints
   private async getRankings(forceTrace?: SourceTrace[]): Promise<RankingsDirectory> {
     const traces = forceTrace ?? [];
-    return this.traced("ATP/WTA singles rankings + player directory", "sr:rankings", TTL.rankings, async () => {
+    const dir = await this.traced("ATP/WTA singles rankings + player directory", "sr:rankings", TTL.rankings, async () => {
       const payload = await this.getJson("rankings");
       return normalizeRankings(payload);
     }, traces, true);
+    if (dir.players.length === 0) {
+      // Never keep an empty directory warm: a zero-player rankings payload (transient
+      // anomaly or unexpected shape) must not be served from cache for the whole 6 h
+      // TTL, silently breaking player search. Drop it so the next request re-fetches.
+      // (Schedule players and EXTRA_PLAYER_IDS stay searchable in the meantime.)
+      await cacheInvalidate((k) => k === "sr:rankings");
+    }
+    return dir;
+  }
+
+  /** Debug aid: how large is the searchable directory and who is in it. */
+  async directoryStats(): Promise<{ size: number; sample: string[] }> {
+    const dir = await this.getRankings();
+    return { size: dir.players.length, sample: dir.players.slice(0, 5).map((p) => p.name) };
   }
 
   private async getSeasonSurface(seasonId: string, traces: SourceTrace[]): Promise<SurfaceInfo> {
