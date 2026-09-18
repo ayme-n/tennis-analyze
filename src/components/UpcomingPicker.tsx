@@ -36,15 +36,15 @@ export default function UpcomingPicker({ demo, onPick, onError }: Props) {
   }
 
   return (
-    <div style={{ marginTop: 10 }}>
+    <div>
       <button className="btn" onClick={() => (open ? setOpen(false) : void load())} type="button">
-        📅 {open ? "Hide upcoming matches" : "Fill from an upcoming match…"}
+        {open ? "Hide upcoming matches" : "Pick from upcoming matches"}
       </button>
       {open && (
-        <div style={{ marginTop: 4 }}>
-          {loading && <div className="notice info">Loading singles matches scheduled in the next 3 days (UTC)…</div>}
+        <div style={{ marginTop: 8 }}>
+          {loading && <div className="notice info">Loading the next 3 days of singles fixtures…</div>}
           {!loading && matches && matches.length === 0 && (
-            <div className="notice info">No upcoming singles fixtures found in the next 3 days.</div>
+            <div className="notice info">No upcoming singles fixtures in the next 3 days.</div>
           )}
           {!loading &&
             matches?.slice(0, 30).map((m) => (
@@ -61,8 +61,8 @@ export default function UpcomingPicker({ demo, onPick, onError }: Props) {
                   {m.playerA.name} vs {m.playerB.name}
                 </span>
                 <span className="sub">
-                  {m.competition ?? "?"} · {m.round ?? "?"} · {m.surface.raw ? m.surface.raw.replace(/_/g, " ") : "surface unknown"} ·{" "}
-                  {m.startTime ? new Date(m.startTime).toUTCString().slice(0, 22) : "time unknown"} · best of {m.bestOf ?? "?"}
+                  {m.competition ?? "?"} · {m.round ?? "?"} · {m.surface.raw ? m.surface.raw.replace(/_/g, " ") : "surface tbc"} ·{" "}
+                  {m.startTime ? new Date(m.startTime).toUTCString().slice(0, 22) : "time tbc"} · Bo{m.bestOf ?? "?"}
                 </span>
               </button>
             ))}

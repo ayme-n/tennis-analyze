@@ -11,27 +11,25 @@ function AggVal({ s }: { s: AggregateStat }) {
   if (!s.available) {
     return (
       <span className="unavail">
-        unavailable
-        <span className="sub">{s.matchesSupporting} match(es) with data</span>
+        n/a <span className="sub">{s.matchesSupporting} matches with data</span>
       </span>
     );
   }
   return (
     <span>
-      {fmtPct(s.ratio.pct)}{" "}
+      {fmtPct(s.ratio.pct)}
       <span className="sub">
-        {s.ratio.num}/{s.ratio.den} · {s.matchesSupporting}m
-        {s.ratio.num === 0 ? " (genuine zero)" : ""}
+        {s.ratio.num}/{s.ratio.den} · {s.matchesSupporting}m{s.ratio.num === 0 ? " · true zero" : ""}
       </span>
     </span>
   );
 }
 
 function PmVal({ s, unit }: { s: PerMatchStat; unit: string }) {
-  if (!s.available) return <span className="unavail">unavailable</span>;
+  if (!s.available) return <span className="unavail">n/a</span>;
   return (
     <span>
-      {(s.perMatch ?? 0).toFixed(2)} <span className="sub">{unit} · {s.matchesSupporting}m{s.total === 0 ? " · genuine zero" : ""}</span>
+      {(s.perMatch ?? 0).toFixed(2)} <span className="sub">{unit}/match · {s.matchesSupporting}m{s.total === 0 ? " · true zero" : ""}</span>
     </span>
   );
 }
@@ -50,10 +48,10 @@ function MatchTable({ matches, emptyText }: { matches: RecentMatchView[]; emptyT
           <th></th>
           <th>Date</th>
           <th>Opponent</th>
-          <th>Tournament · level · round</th>
+          <th>Event</th>
           <th>Surface</th>
           <th>Score</th>
-          <th>Status</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -65,14 +63,17 @@ function MatchTable({ matches, emptyText }: { matches: RecentMatchView[]; emptyT
               {m.opponent.name} {m.opponent.countryCode ? `(${m.opponent.countryCode})` : ""}
             </td>
             <td>
-              {m.competition ?? "?"} <span style={{ color: "var(--muted)" }}>{[m.level ?? m.category, m.isQualification ? "qualifying" : null, m.round].filter(Boolean).join(" · ")}</span>
+              {m.competition ?? "?"}{" "}
+              <span style={{ color: "var(--faint)" }}>
+                {[m.level ?? m.category, m.isQualification ? "qualifying" : null, m.round].filter(Boolean).join(" · ")}
+              </span>
             </td>
             <td style={{ whiteSpace: "nowrap" }}>{m.surface}</td>
             <td className="score">{m.scoreText}</td>
-            <td>
-              {m.outcome === "completed" ? "completed" : m.outcome}
+            <td style={{ whiteSpace: "nowrap" }}>
+              {m.outcome !== "completed" ? m.outcome : ""}
               {m.outcome !== "completed" && <span className="tag ret">excluded</span>}
-              {!m.statsAvailable && <span className="tag">no match stats</span>}
+              {!m.statsAvailable && <span className="tag">no stats</span>}
             </td>
           </tr>
         ))}
@@ -84,32 +85,38 @@ function MatchTable({ matches, emptyText }: { matches: RecentMatchView[]; emptyT
 export default function PlayerPanel({
   title,
   block,
-  otherName,
 }: {
   title: string;
   block: PlayerReportBlock;
-  otherName: string;
 }) {
   const a = block.agg;
   const rows: Array<[string, React.ReactNode]> = [];
   rows.push([
     "Matches won / played",
     <span>
-      {a.matchesWon}/{a.matchesCompleted}{" "}
-      <span className="sub">({a.winPct === null ? "n/a" : fmtPct(a.winPct)}) · {a.matchesLost}L{a.matchesRetired > 0 ? ` · ${a.matchesRetired} retired` : ""}{a.matchesWalkover > 0 ? ` · ${a.matchesWalkover} walkover` : ""}{a.matchesDefaulted > 0 ? ` · ${a.matchesDefaulted} defaulted` : ""}</span>
+      {a.matchesWon}/{a.matchesCompleted}
+      <span className="sub">
+        {a.winPct === null ? "n/a" : fmtPct(a.winPct)} · {a.matchesLost}L
+        {a.matchesRetired > 0 ? ` · ${a.matchesRetired} retired` : ""}
+        {a.matchesWalkover > 0 ? ` · ${a.matchesWalkover} walkover` : ""}
+        {a.matchesDefaulted > 0 ? ` · ${a.matchesDefaulted} defaulted` : ""}
+      </span>
     </span>,
   ]);
   rows.push([
-    "Tournaments won / entered",
+    "Titles / tournaments",
     block.yearAggregate ? (
       <span>
         {block.yearAggregate.competitionsWon}/{block.yearAggregate.competitionsPlayed}
         <span className="sub">
-          {block.yearAggregate.competitionsPlayed > 0 ? fmtPct((100 * block.yearAggregate.competitionsWon) / block.yearAggregate.competitionsPlayed) : "n/a"} · provider aggregate · {block.yearAggregate.years.join(", ")}
+          {block.yearAggregate.competitionsPlayed > 0
+            ? fmtPct((100 * block.yearAggregate.competitionsWon) / block.yearAggregate.competitionsPlayed)
+            : "n/a"}{" "}
+          · provider aggregate · {block.yearAggregate.years.join(", ")}
         </span>
       </span>
     ) : (
-      <span className="unavail">unavailable <span className="sub">whole-calendar-year provider aggregate only</span></span>
+      <span className="unavail">n/a <span className="sub">whole-calendar-year aggregate only</span></span>
     ),
   ]);
   rows.push([
@@ -118,36 +125,37 @@ export default function PlayerPanel({
       <span>
         {block.ranking.tour} #{block.ranking.rank}
         <span className="sub">
-          as of {block.ranking.asOf}
-          {block.ranking.movement !== null && block.ranking.movement !== 0 ? ` · ${block.ranking.movement > 0 ? "+" : ""}${block.ranking.movement}` : ""}
+          {block.ranking.asOf}
+          {block.ranking.movement !== null && block.ranking.movement !== 0
+            ? ` · ${block.ranking.movement > 0 ? "+" : ""}${block.ranking.movement}`
+            : ""}
         </span>
       </span>
     ) : (
-      <span className="unavail">unavailable</span>
+      <span className="unavail">n/a</span>
     ),
   ]);
   rows.push(["First serves in", <AggVal s={a.firstServeInPct} />]);
-  rows.push(["First-serve points won", <AggVal s={a.firstServePointsWonPct} />]);
+  rows.push(["1st-serve points won", <AggVal s={a.firstServePointsWonPct} />]);
   rows.push(["Second serves in", <AggVal s={a.secondServeInPct} />]);
-  rows.push(["Second-serve points won", <AggVal s={a.secondServePointsWonPct} />]);
-  rows.push(["Aces per match", <PmVal s={a.acesPerMatch} unit="aces" />]);
-  rows.push(["Double faults per match", <PmVal s={a.doubleFaultsPerMatch} unit="DFs" />]);
+  rows.push(["2nd-serve points won", <AggVal s={a.secondServePointsWonPct} />]);
+  rows.push(["Aces", <PmVal s={a.acesPerMatch} unit="aces" />]);
+  rows.push(["Double faults", <PmVal s={a.doubleFaultsPerMatch} unit="DFs" />]);
   rows.push(["Break points saved", <AggVal s={a.breakPointsSavedPct} />]);
   rows.push([
     "Break points converted",
-    <>
+    <span>
       <AggVal s={a.breakPointsConvertedPct} />
-      <span className="sub">from opponents' rows</span>
-    </>,
+    </span>,
   ]);
   rows.push([
-    "Tiebreaks won / played",
+    "Tiebreaks",
     a.tiebreaks.matchesSupporting > 0 && a.tiebreaks.played > 0 ? (
       <span>
         {a.tiebreaks.won}/{a.tiebreaks.played} <span className="sub">({fmtPct(a.tiebreaks.pct)})</span>
       </span>
     ) : (
-      <span className="unavail">no tiebreaks in window</span>
+      <span className="unavail">none in window</span>
     ),
   ]);
   rows.push(["Return points won", <AggVal s={a.returnPointsWonPct} />]);
@@ -157,31 +165,26 @@ export default function PlayerPanel({
   return (
     <div className="card">
       <div className="playerhead">
-        <h2>
-          {title}: {block.name}
-        </h2>
-        {block.countryCode && <span className="cc">{block.countryCode}</span>}
+        <div>
+          <span className="kicker">{title}</span>
+          <h2>{block.name}</h2>
+        </div>
         {block.ranking && <span className="rank">#{block.ranking.rank}</span>}
-        {block.handedness && <span className="cc">{block.handedness}-handed</span>}
+        {block.countryCode && <span className="cc">{block.countryCode}</span>}
+        {block.handedness && <span className="cc">{block.handedness}</span>}
       </div>
       <div className="meta-line">
-        <span>
-          window <b>{block.window.from}</b> → <b>{block.window.to}</b>
-        </span>
-        <span>
-          data actually spans <b>{block.window.actualOldest ?? "—"}</b> → <b>{block.window.actualNewest ?? "—"}</b>
-        </span>
-        <span>
-          <b>{block.coverage.kept}</b> match(es) counted of {block.coverage.fetched} singles fetched
-        </span>
+        <span>window <b>{block.window.from} → {block.window.to}</b></span>
+        <span>covered <b>{block.window.actualOldest ?? "—"} → {block.window.actualNewest ?? "—"}</b></span>
+        <span><b>{block.coverage.kept}</b> of {block.coverage.fetched} matches counted</span>
       </div>
       {block.coverage.reasons.map((r, i) => (
         <div className="notice warn" key={i}>
-          ⚠ {r}
+          {r}
         </div>
       ))}
       {a.matchesWithStats < 5 && (
-        <div className="notice warn small-sample">⚠ Small sample: only {a.matchesWithStats} match(es) carry statistics — percentages may swing wildly.</div>
+        <div className="notice warn small-sample">Small sample: only {a.matchesWithStats} match(es) have statistics.</div>
       )}
       <table className="compare">
         <tbody>
@@ -196,19 +199,16 @@ export default function PlayerPanel({
 
       <details className="recent" open={block.recent.length <= 5 && block.recent.length > 0}>
         <summary>
-          Recent matches (newest {block.recent.length}) — filtered view{block.recentAllSurfaces ? " · all-surfaces form below" : ""}
+          Recent matches ({block.recent.length}){block.recentAllSurfaces ? " — all-surfaces list below" : ""}
         </summary>
-        <MatchTable matches={block.recent} emptyText={`No matches of ${block.name} inside the selected window/filters.`} />
+        <MatchTable matches={block.recent} emptyText={`No ${block.name} matches inside the selected window/filters.`} />
         {block.recentAllSurfaces && (
           <>
-            <h3 className="sec">All-surfaces recent form — informational only, does NOT change the aggregates above</h3>
-            <MatchTable matches={block.recentAllSurfaces} emptyText="No matches at all in this window." />
+            <h3 className="sec" style={{ marginTop: 16 }}>All surfaces (informational only)</h3>
+            <MatchTable matches={block.recentAllSurfaces} emptyText="No matches in this window." />
           </>
         )}
       </details>
-      <div className="meta-line" style={{ marginTop: 10 }}>
-        <span>upcoming opponent: {otherName}</span>
-      </div>
     </div>
   );
 }

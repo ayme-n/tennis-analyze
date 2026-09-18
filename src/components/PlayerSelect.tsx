@@ -81,7 +81,7 @@ export default function PlayerSelect({ label, demo, value, disabled, onChange }:
       <label className="f">{label}</label>
       <input
         type="text"
-        placeholder="Type a player name (e.g. Sinner)…"
+        placeholder="Search player…"
         value={value ? playerLabel(value) : q}
         disabled={disabled}
         onChange={(e) => {
@@ -119,13 +119,12 @@ export default function PlayerSelect({ label, demo, value, disabled, onChange }:
       )}
       {open && !value && (q.trim().length >= 2 || error) && (
         <div className="plist" role="listbox">
-          {loading && <div className="empty">searching…</div>}
+          {loading && <div className="empty">Searching…</div>}
           {error && <div className="empty">{error}</div>}
           {!loading && !error && options.length === 0 && (
             <div className="empty">
-              No ranked singles players match “{q}”. Try full or last name. If even well-known players return nothing,
-              use <b>🔍 Test API key</b> / <b>🧹 Clear cache &amp; re-test</b> in the header. Players outside the
-              ranking feeds can be added via the EXTRA_PLAYER_IDS env var.
+              No ranked singles players match “{q}” — try a full or last name. If even top players return nothing,
+              use “Test key” / “Clear cache” in the header.
             </div>
           )}
           {options.map((p, i) => (

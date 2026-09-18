@@ -112,11 +112,11 @@ export default function Home() {
     async (refresh: boolean) => {
       setError(null);
       if (!playerA || !playerB) {
-        setError({ message: "Select Player A and Player B first (search and pick from the list)." });
+        setError({ message: "Select Player A and Player B first." });
         return;
       }
       if (playerA.id === playerB.id) {
-        setError({ message: "Player A and Player B are the same player." });
+        setError({ message: "Player A and Player B must be different players." });
         return;
       }
       setLoading(true);
@@ -221,23 +221,23 @@ export default function Home() {
     <div className="wrap">
       <header className="top">
         <h1>
-          <span className="ball">🎾</span> Tennis Match Prep
+          <span className="dot" /> Match Prep
         </h1>
         <span className={`badge ${demo ? "demo" : status === null ? "" : status.connected ? "ok" : "bad"}`}>
-          {demo ? "⚠ DEMO — NOT REAL MATCH DATA" : status === null ? "checking provider…" : status.connected ? `● ${status.label}` : "○ Data provider not connected"}
+          {demo ? "Demo — synthetic data" : status === null ? "Checking provider" : status.connected ? status.label : "Provider not connected"}
         </span>
         {status?.connected && !demo && (
           <>
-            <button className="btn" onClick={testKey} disabled={probing} title="Shows which key/access level this deployment uses and fires one live request to the provider.">
-              {probing ? "Testing…" : "🔍 Test API key"}
+            <button className="btn" onClick={testKey} disabled={probing}>
+              {probing ? "Testing…" : "Test key"}
             </button>
-            <button className="btn" onClick={clearCacheAndTest} disabled={probing} title="Drops all cached provider data, then re-tests. Use this if search stopped finding players.">
-              🧹 Clear cache &amp; re-test
+            <button className="btn" onClick={clearCacheAndTest} disabled={probing}>
+              Clear cache
             </button>
           </>
         )}
         <span className="spacer" />
-        <label className="checkline" style={{ marginTop: 0 }} title="Synthetic data for trying the UI. Never used automatically.">
+        <label className="checkline" style={{ margin: 0 }}>
           <input
             type="checkbox"
             checked={demo}
@@ -249,110 +249,89 @@ export default function Home() {
               setScheduled(null);
             }}
           />
-          Demo mode (synthetic, clearly labeled)
+          Demo mode
         </label>
       </header>
 
-      {demo && <div className="notice demo">DEMO — NOT REAL MATCH DATA. Synthetic fixtures for interface testing only; also printed in exports.</div>}
+      {demo && <div className="notice demo">Demo mode — synthetic fixtures, not real match data.</div>}
       {diagnosis && !demo && (status?.connected ?? false) && (
-        <div className={`notice ${diagnosis.probe ? (diagnosis.probe.ok ? "info" : "err") : "info"}`}>
-          <b>Provider connection check.</b> This deployment is using key <code>{diagnosis.keyMasked}</code> at access level{" "}
-          <b>{diagnosis.accessLevel}</b>
-          {diagnosis.endpoint !== "(synthetic fixtures)" && (
+        <div className={`notice ${diagnosis.probe ? (diagnosis.probe.ok ? "info" : "err") : ""}`}>
+          Key <code>{diagnosis.keyMasked}</code> · level <b>{diagnosis.accessLevel}</b>
+          {diagnosis.probe ? (
             <>
-              {" "}
-              → <code style={{ fontSize: 12 }}>{diagnosis.endpoint}</code>
-            </>
-          )}
-          {diagnosis.probe && (
-            <div style={{ marginTop: 6 }}>
-              Live probe: <b>{diagnosis.probe.httpStatus !== null ? `HTTP ${diagnosis.probe.httpStatus}` : "no response"}</b> — {diagnosis.probe.message}
+              {" "}· probe <b>{diagnosis.probe.httpStatus !== null ? `HTTP ${diagnosis.probe.httpStatus}` : "no response"}</b> — {diagnosis.probe.message}
               {diagnosis.probe.directoryPlayers !== undefined && diagnosis.probe.directoryPlayers !== null && (
-                <>
-                  {" "}
-                  Player directory: <b>{diagnosis.probe.directoryPlayers}</b> player(s) parsed from the rankings feed
-                  {diagnosis.probe.directoryPlayers > 0 ? " ✓" : " ✗ — search cannot find anyone until this is > 0"}.
-                </>
+                <> · directory: <b>{diagnosis.probe.directoryPlayers}</b> players{diagnosis.probe.directoryPlayers === 0 && " (search will stay empty)"}</>
               )}
               {diagnosis.probe.directoryPlayers === 0 && diagnosis.probe.payloadKeys && diagnosis.probe.payloadKeys.length > 0 && (
-                <div style={{ marginTop: 4 }}>
-                  Unexpected payload shape — top-level keys: <code>{diagnosis.probe.payloadKeys.join(", ")}</code>
-                </div>
+                <> · payload keys: <code>{diagnosis.probe.payloadKeys.join(", ")}</code></>
               )}
-              {diagnosis.probe.directoryPlayers === null && <div style={{ marginTop: 4 }}>The provider answered HTTP 200 but not with JSON.</div>}
-            </div>
-          )}
-          {!diagnosis.probe && (
-            <div style={{ marginTop: 6, color: "var(--muted)" }}>
-              Click <b>Test API key</b> to fire one live request and confirm the provider accepts this key.
-            </div>
+            </>
+          ) : (
+            <> · run “Test key” for a live check</>
           )}
         </div>
       )}
       {needsSetup && (
         <div className="notice warn">
-          <b>Data provider not connected.</b> This app never shows sample data as real. To connect real data: create a
-          free Sportradar trial key (marketplace.sportradar.com → add the Tennis API trial), then create{" "}
-          <code>.env.local</code> next to <code>package.json</code> containing <code>SPORTRADAR_API_KEY=your_key</code>{" "}
-          and restart the server. See README.md.
+          Provider not connected — set <code>SPORTRADAR_API_KEY</code> server-side to enable live data.
         </div>
       )}
 
       <div className="card">
         <div className="controls-grid">
           <PlayerSelect label="Player A" demo={demo} value={playerA} onChange={(p) => { setPlayerA(p); setScheduled(null); }} disabled={loading} />
+          <div className="vs-sep">VS</div>
           <PlayerSelect label="Player B" demo={demo} value={playerB} onChange={(p) => { setPlayerB(p); setScheduled(null); }} disabled={loading} />
         </div>
-        <UpcomingPicker demo={demo} onPick={onUpcomingPick} onError={(msg) => setError({ message: msg, retryable: true })} />
+
+        <div style={{ marginTop: 14 }}>
+          <UpcomingPicker demo={demo} onPick={onUpcomingPick} onError={(msg) => setError({ message: msg, retryable: true })} />
+        </div>
         {scheduled && (
-          <div className="notice info" style={{ marginTop: 10 }}>
-            Scheduled match: <b>{scheduled.playerA.name} vs {scheduled.playerB.name}</b> · {scheduled.competition ?? "?"} ·{" "}
-            {scheduled.round ?? "?"} · {scheduled.surface.raw ? scheduled.surface.raw.replace(/_/g, " ") : "surface unknown"} ·{" "}
-            {scheduled.startTime ? new Date(scheduled.startTime).toUTCString().slice(0, 22) : "time unknown"} · best of{" "}
-            {scheduled.bestOf ?? "?"} (filters were pre-filled from this fixture; adjust as needed)
+          <div className="notice info" style={{ marginTop: 12 }}>
+            <b>{scheduled.playerA.name} vs {scheduled.playerB.name}</b> · {scheduled.competition ?? "?"} · {scheduled.round ?? "?"} ·{" "}
+            {scheduled.surface.raw ? scheduled.surface.raw.replace(/_/g, " ") : "surface unknown"} ·{" "}
+            {scheduled.startTime ? new Date(scheduled.startTime).toUTCString().slice(0, 22) : "time unknown"} · best of {scheduled.bestOf ?? "?"}
           </div>
         )}
 
         <div className="filters">
           <SegRow label="Surface" value={surface} onChange={setSurface} options={[{ id: "hard", label: "Hard" }, { id: "clay", label: "Clay" }, { id: "grass", label: "Grass" }, { id: "all", label: "All" }]} />
-          <SegRow label="Indoor / outdoor" value={environment} onChange={setEnvironment} options={[{ id: "all", label: "All" }, { id: "outdoor", label: "Outdoor" }, { id: "indoor", label: "Indoor" }]} />
-          <SegRow label="Match format" value={format} onChange={setFormat} options={[{ id: "3", label: "Best of 3" }, { id: "5", label: "Best of 5" }, { id: "all", label: "All" }]} />
-          <SegRow label="Date range" value={datePreset} onChange={setDatePreset} options={[{ id: "12m", label: "Last 12 months" }, { id: "season", label: "Current season" }, { id: "custom", label: "Custom" }]} />
-          <SegRow label="Recent matches shown" value={recentCount} onChange={setRecentCount} options={[{ id: "4", label: "4" }, { id: "5", label: "5" }, { id: "10", label: "10" }]} />
+          <SegRow label="Environment" value={environment} onChange={setEnvironment} options={[{ id: "all", label: "All" }, { id: "outdoor", label: "Outdoor" }, { id: "indoor", label: "Indoor" }]} />
+          <SegRow label="Format" value={format} onChange={setFormat} options={[{ id: "3", label: "Bo3" }, { id: "5", label: "Bo5" }, { id: "all", label: "All" }]} />
+          <SegRow label="Window" value={datePreset} onChange={setDatePreset} options={[{ id: "12m", label: "12 months" }, { id: "season", label: "Season" }, { id: "custom", label: "Custom" }]} />
+          <SegRow label="Recent shown" value={recentCount} onChange={setRecentCount} options={[{ id: "4", label: "4" }, { id: "5", label: "5" }, { id: "10", label: "10" }]} />
         </div>
         {datePreset === "custom" && (
           <div className="filters">
             <div className="fgroup">
-              <label className="f">From (yyyy-mm-dd)</label>
+              <label className="f">From</label>
               <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
             </div>
             <div className="fgroup">
-              <label className="f">To (yyyy-mm-dd)</label>
+              <label className="f">To</label>
               <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
             </div>
           </div>
         )}
         <label className="checkline">
           <input type="checkbox" checked={recentAllSurfaces} onChange={(e) => setRecentAllSurfaces(e.target.checked)} />
-          Also show an all-surfaces recent-form list (clearly labeled; never affects the surface-filtered aggregates)
+          Also show an all-surfaces recent list (never affects the aggregates)
         </label>
 
         <div className="actions">
           <button className="btn primary" disabled={loading || !playerA || !playerB} onClick={() => void fetchPrep(false)}>
-            {loading ? "Fetching real stats…" : "⚡ FETCH STATS"}
+            {loading ? "Fetching…" : "Run analysis"}
           </button>
-          <button className="btn" disabled={loading || !playerA || !playerB} onClick={() => void fetchPrep(true)} title="Bypass cache and pull fresh data from the provider">
-            ↻ Refresh Data
+          <button className="btn" disabled={loading || !playerA || !playerB} onClick={() => void fetchPrep(true)}>
+            Refresh (bypass cache)
           </button>
         </div>
-        {loading && (
-          <div className="progress-steps">
-            Contacting provider (server-side)… first fetch can take ~10–40 s due to provider rate limits (about 1 request/second, incl. per-tournament surface lookups); later requests use the cache.
-          </div>
-        )}
+        {loading && <div className="progress-steps">Contacting provider — first fetch takes 10–40 s, later requests are cached.</div>}
         {error && (
           <div className="notice err">
-            <b>{error.code === "not_configured" ? "Data provider not connected" : "Request failed"}.</b> {error.message}
+            {error.message}
             {(error.retryable ?? true) && error.code !== "not_configured" && (
               <button className="btn retry" onClick={() => void fetchPrep(false)} disabled={loading}>
                 Retry
@@ -364,33 +343,32 @@ export default function Home() {
 
       {!data && !loading && !error && (
         <div className="skel">
-          Select Player A and Player B, tune the filters, then hit <b>FETCH STATS</b>.<br />
-          <span style={{ color: "var(--muted)" }}>The app collects real matches, computes aggregates from raw counts, and builds one compact report for AI analysis.</span>
+          Pick two players, set the filters, run the analysis.
         </div>
       )}
-      {loading && <div className="skel">⏳ Fetching and computing…</div>}
+      {loading && <div className="skel">Fetching and computing…</div>}
 
       {data && (
         <>
           <div className="card">
-            <h3 className="sec" style={{ marginTop: 0 }}>Data provenance & coverage</h3>
+            <h3 className="sec">Provenance</h3>
             <div className="meta-line">
-              <span>Source: <b>{data.meta.providerLabel}</b></span>
-              <span>Retrieved: <b>{new Date(data.meta.retrievedAt).toUTCString()}</b></span>
-              <span>Window: <b>{data.meta.filters.from}</b> → <b>{data.meta.filters.to}</b> (cutoff {new Date(data.meta.filters.cutoffIso).toUTCString().slice(0, 22)})</span>
+              <span>Source <b>{data.meta.providerLabel}</b></span>
+              <span>Retrieved <b>{new Date(data.meta.retrievedAt).toUTCString()}</b></span>
+              <span>Window <b>{data.meta.filters.from} → {data.meta.filters.to}</b></span>
             </div>
-            {data.meta.demoBanner && <div className="notice demo" style={{ marginTop: 8 }}>{data.meta.demoBanner}</div>}
+            {data.meta.demoBanner && <div className="notice demo" style={{ marginTop: 10 }}>{data.meta.demoBanner}</div>}
             {data.meta.scheduledMatch && (
-              <div className="notice info" style={{ marginTop: 8 }}>
-                Scheduled match per provider: {data.meta.scheduledMatch.competition ?? "?"}
-                {data.meta.scheduledMatch.round ? `, ${data.meta.scheduledMatch.round}` : ""}
-                {data.meta.scheduledMatch.startTime ? `, starts ${new Date(data.meta.scheduledMatch.startTime).toUTCString().slice(0, 22)}` : ""}
-                {data.meta.scheduledMatch.surfaceLabel ? `, ${data.meta.scheduledMatch.surfaceLabel}` : ""}
+              <div className="notice info" style={{ marginTop: 10 }}>
+                Scheduled match: {data.meta.scheduledMatch.competition ?? "?"}
+                {data.meta.scheduledMatch.round ? ` · ${data.meta.scheduledMatch.round}` : ""}
+                {data.meta.scheduledMatch.startTime ? ` · ${new Date(data.meta.scheduledMatch.startTime).toUTCString().slice(0, 22)}` : ""}
+                {data.meta.scheduledMatch.surfaceLabel ? ` · ${data.meta.scheduledMatch.surfaceLabel}` : ""}
               </div>
             )}
             <details className="sources">
               <summary>
-                {data.meta.sources.length} provider request(s) — {data.meta.sources.filter((s) => s.fromCache).length} served from cache (click for times)
+                {data.meta.sources.length} provider request(s), {data.meta.sources.filter((s) => s.fromCache).length} from cache
               </summary>
               {data.meta.sources.map((s, i) => (
                 <div className="source-row" key={i}>
@@ -403,34 +381,40 @@ export default function Home() {
           </div>
 
           <div className="grid2">
-            <PlayerPanel title="Player A" block={data.playerA} otherName={data.playerB.name} />
-            <PlayerPanel title="Player B" block={data.playerB} otherName={data.playerA.name} />
+            <PlayerPanel title="Player A" block={data.playerA} />
+            <PlayerPanel title="Player B" block={data.playerB} />
           </div>
 
           <div className="card">
-            <h3 className="sec" style={{ marginTop: 0 }}>Head-to-head</h3>
+            <h3 className="sec">Head-to-head</h3>
             {data.h2h.summary ? (
               <>
-                <div className="h2h-line">
-                  Overall (provider record{data.h2h.summary.earliest ? `, ${data.h2h.summary.earliest} → ${data.h2h.summary.latest}` : ""}):{" "}
-                  <b>{data.h2h.summary.aWon}–{data.h2h.summary.bWon}</b> for {data.playerA.name}
+                <div className="h2h-score">
+                  <span>{data.playerA.name}</span>
+                  <span className="big">
+                    {data.h2h.summary.aWon}
+                    <em>–</em>
+                    {data.h2h.summary.bWon}
+                  </span>
+                  <span>{data.playerB.name}</span>
                 </div>
                 <div className="h2h-line">
-                  By surface: hard <b>{data.h2h.summary.bySurface.hard.aWon}–{data.h2h.summary.bySurface.hard.bWon}</b>, clay{" "}
+                  {data.h2h.summary.earliest ? `Meetings on record ${data.h2h.summary.earliest} → ${data.h2h.summary.latest} · ` : ""}
+                  by surface — hard <b>{data.h2h.summary.bySurface.hard.aWon}–{data.h2h.summary.bySurface.hard.bWon}</b>, clay{" "}
                   <b>{data.h2h.summary.bySurface.clay.aWon}–{data.h2h.summary.bySurface.clay.bWon}</b>, grass{" "}
                   <b>{data.h2h.summary.bySurface.grass.aWon}–{data.h2h.summary.bySurface.grass.bWon}</b>
-                  {data.h2h.summary.unknownSurfaceCount > 0 && <span className="unavail"> ({data.h2h.summary.unknownSurfaceCount} unknown-surface)</span>}
+                  {data.h2h.summary.unknownSurfaceCount > 0 && <span className="unavail"> · {data.h2h.summary.unknownSurfaceCount} unknown surface</span>}
                 </div>
                 {data.h2h.matches.length > 0 && (
                   <details className="recent">
-                    <summary>Meetings on record ({data.h2h.matches.length})</summary>
+                    <summary>Meetings ({data.h2h.matches.length})</summary>
                     <table className="mtable">
                       <tbody>
                         {data.h2h.matches.map((m) => (
                           <tr key={m.id} className="mrow">
                             <td style={{ whiteSpace: "nowrap" }}>{m.date}</td>
                             <td>
-                              {m.playerWon ? data.playerA.name : data.playerB.name} won {m.scoreText}
+                              {m.playerWon ? data.playerA.name : data.playerB.name} won · <span className="score">{m.scoreText}</span>
                             </td>
                             <td>{m.competition}</td>
                             <td>{m.surface}</td>
@@ -443,30 +427,29 @@ export default function Home() {
                 )}
               </>
             ) : (
-              <div className="notice info">No previous meetings in provider record (or the head-to-head feed failed).</div>
+              <div className="notice info">No previous meetings on record (or the feed failed).</div>
             )}
           </div>
 
           <div className="card">
-            <h3 className="sec" style={{ marginTop: 0 }}>Export for AI analysis</h3>
+            <h3 className="sec">Export</h3>
             <div className="exportbar">
               <button className="btn primary" onClick={() => void copyForAI()}>
-                📋 Copy for AI
+                {copyState === "copied" ? "Copied" : "Copy for AI"}
               </button>
               <button className="btn" onClick={() => download(`tennis-match-prep-${data.playerA.name}-vs-${data.playerB.name}.txt`, data.reportText, "text/plain")}>
-                ⬇ Download TXT
+                .txt
               </button>
               <button
                 className="btn"
                 onClick={() => download(`tennis-match-prep-${data.playerA.name}-vs-${data.playerB.name}.json`, JSON.stringify(data, null, 2), "application/json")}
               >
-                ⬇ Download JSON
+                .json
               </button>
               <button className="btn" onClick={() => setReportVisible((v) => !v)}>
-                {reportVisible ? "Hide report text" : "View report text"}
+                {reportVisible ? "Hide report" : "View report"}
               </button>
-              {copyState === "copied" && <span className="badge ok">copied ✓</span>}
-              {copyState === "failed" && <span className="badge bad">clipboard blocked — select the text below manually</span>}
+              {copyState === "failed" && <span className="badge bad">Clipboard blocked — select the text below</span>}
             </div>
             {reportVisible && <textarea ref={reportRef} className="report" readOnly value={data.reportText} onFocus={(e) => e.target.select()} />}
           </div>
