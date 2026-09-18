@@ -10,6 +10,7 @@ import type {
   MatchSideStats,
   NormalizedMatch,
   PlayerProfile,
+  ProviderDiagnosis,
   SetScore,
   SourceTrace,
   SurfaceInfo,
@@ -202,6 +203,10 @@ export class DemoProvider implements TennisDataProvider {
 
   async status() {
     return { connected: true, detail: DEMO_BANNER };
+  }
+
+  async diagnose(): Promise<ProviderDiagnosis> {
+    return { connected: true, keyMasked: "(demo — no key)", accessLevel: "demo", endpoint: "(synthetic fixtures)" };
   }
 
   refresh(): void {

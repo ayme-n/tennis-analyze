@@ -10,6 +10,7 @@ import type {
   HeadToHead,
   NormalizedMatch,
   PlayerProfile,
+  ProviderDiagnosis,
   SourceTrace,
   SurfaceInfo,
   TennisDataProvider,
@@ -39,16 +40,33 @@ const TTL = {
 interface ClientConfig {
   apiKey: string;
   accessLevel: string;
+  accessLevelRaw: string;
   baseUrl: string;
   language: string;
   minIntervalMs: number;
   timeoutMs: number;
 }
 
+/** Clean a pasted API key: trim, drop wrapping quotes, remove stray whitespace/newlines. */
+export function sanitizeApiKey(raw: string | undefined | null): string {
+  let k = (raw ?? "").trim();
+  if (
+    k.length >= 2 &&
+    ((k.startsWith('"') && k.endsWith('"')) || (k.startsWith("'") && k.endsWith("'")))
+  ) {
+    k = k.slice(1, -1).trim();
+  }
+  return k.replace(/\s+/g, "");
+}
+
 export function loadSportradarConfig(): ClientConfig {
   return {
-    apiKey: process.env.SPORTRADAR_API_KEY?.trim() ?? "",
-    accessLevel: (process.env.SPORTRADAR_ACCESS_LEVEL || "trial").trim() === "production" ? "production" : "trial",
+    apiKey: sanitizeApiKey(process.env.SPORTRADAR_API_KEY),
+    accessLevel: (process.env.SPORTRADAR_ACCESS_LEVEL || "trial").trim().toLowerCase() === "production" ||
+      (process.env.SPORTRADAR_ACCESS_LEVEL || "").trim().toLowerCase() === "prod"
+      ? "production"
+      : "trial",
+    accessLevelRaw: (process.env.SPORTRADAR_ACCESS_LEVEL ?? "").trim(),
     baseUrl: (process.env.SPORTRADAR_BASE_URL || "https://api.sportradar.com/tennis").replace(/\/+$/, ""),
     language: (process.env.SPORTRADAR_LANGUAGE || "en").trim() || "en",
     minIntervalMs: Math.max(0, Number(process.env.PROVIDER_MIN_INTERVAL_MS ?? 1100) || 0),
@@ -88,6 +106,45 @@ export class SportradarProvider implements TennisDataProvider {
     return { connected: true, detail: `${this.label} (${this.cfg.accessLevel} key configured)` };
   }
 
+  /**
+   * Inspect what the running server actually has configured, and optionally fire
+   * ONE real request to the provider to see how the key is received. Safe to expose:
+   * the key is never returned — only a short mask plus its length.
+   */
+  async diagnose(probe = false): Promise<ProviderDiagnosis> {
+    const out: ProviderDiagnosis = {
+      connected: this.connected,
+      keyMasked: maskKey(this.cfg.apiKey),
+      accessLevel: this.cfg.accessLevel,
+      endpoint: this.url("rankings"),
+    };
+    if (!this.connected) return out;
+    if (probe) {
+      await this.gate.wait();
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), this.cfg.timeoutMs);
+      try {
+        const res = await fetch(out.endpoint, {
+          headers: { accept: "application/json", "x-api-key": this.cfg.apiKey },
+          signal: ctrl.signal,
+        });
+        out.probe = { ok: res.ok, httpStatus: res.status, message: interpretProbe(res.status) };
+      } catch (err) {
+        out.probe = {
+          ok: false,
+          httpStatus: null,
+          message:
+            err instanceof Error && err.name === "AbortError"
+              ? `Timed out after ${this.cfg.timeoutMs} ms reaching api.sportradar.com.`
+              : `Network error reaching api.sportradar.com: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    return out;
+  }
+
   /** Mark the *next* service build as a forced refresh; consumed by endRefresh(). */
   refresh(opts: { directoryOnly?: boolean }): void {
     if (opts.directoryOnly) this.refreshDirectoryOnly = true;
@@ -122,7 +179,16 @@ export class SportradarProvider implements TennisDataProvider {
           signal: ctrl.signal,
         });
         if (res.status === 401 || res.status === 403) {
-          throw new ProviderError("auth_failed", `Provider rejected the API key (HTTP ${res.status}). Check SPORTRADAR_API_KEY / SPORTRADAR_ACCESS_LEVEL.`, res.status);
+          throw new ProviderError(
+            "auth_failed",
+            `Provider rejected the API key (HTTP ${res.status}). Check SPORTRADAR_API_KEY / SPORTRADAR_ACCESS_LEVEL. ` +
+              `Common causes: (1) the key is not the one issued for the Tennis API subscription — each Sportradar product has its own key; ` +
+              `(2) access level mismatch — a trial key needs SPORTRADAR_ACCESS_LEVEL=trial, a production key needs production; ` +
+              `(3) the pasted value contains extra characters (quotes/spaces); ` +
+              `(4) on Vercel, the env var was added but the deployment was not redeployed afterwards. ` +
+              `Open GET /api/status?probe=1 to run a live key check.`,
+            res.status,
+          );
         }
         if (res.status === 429) {
           lastErr = new ProviderError("rate_limited", "Provider rate limit hit (HTTP 429).", 429);
@@ -375,6 +441,23 @@ function fold(s: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+/** Short non-reversible mask so deployments can be verified without leaking the key. */
+export function maskKey(key: string): string {
+  if (!key) return "(not set)";
+  if (key.length <= 8) return `•••• (${key.length} chars)`;
+  return `${key.slice(0, 4)}…${key.slice(-4)} (${key.length} chars)`;
+}
+
+function interpretProbe(status: number): string {
+  if (status === 200) return "Key accepted — the provider returned rankings data.";
+  if (status === 401 || status === 403)
+    return "Key rejected. Most likely: the key is not the Tennis API subscription key, SPORTRADAR_ACCESS_LEVEL doesn't match the key type (trial vs production), or the pasted value has stray quotes/spaces.";
+  if (status === 404) return "Endpoint not found (HTTP 404) — check SPORTRADAR_BASE_URL / SPORTRADAR_LANGUAGE.";
+  if (status === 429) return "Key accepted but the trial quota is exhausted (HTTP 429). Wait for the quota window to reset.";
+  if (status >= 500) return `Provider server error (HTTP ${status}) — try again later.`;
+  return `Unexpected HTTP ${status}.`;
 }
 
 export async function invalidateDirectory(): Promise<number> {

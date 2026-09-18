@@ -23,9 +23,20 @@ Chosen after verifying current official documentation (see `docs/PROVIDER-RESEAR
 
 4. Start (or restart) the server. The header badge turns green: "● Sportradar Tennis API v3".
 
-The key is read **only server-side** and is sent only to `api.sportradar.com` in the `x-api-key` header. It never appears in browser code, network responses from this app, exported reports, or logs (see the test suite for an explicit guard).
+The key is read **only server-side** and is sent only to `api.sportradar.com` in the `x-api-key` header. It never appears in browser code, network responses from this app, exported reports, or logs (see the test suite for an explicit guard). The one deliberate exception: `GET /api/status` returns a short **mask** of the configured key (first/last 4 chars + length, e.g. `abcd…wxyz (32 chars)`) so deployments can be verified without ever exposing the key itself.
 
 Already paying for Sportradar production access? Set `SPORTRADAR_ACCESS_LEVEL=production`.
+
+## Troubleshooting: "Provider rejected the API key (HTTP 403)"
+
+A 403 means your deployment *is* sending a key to `api.sportradar.com`, but Sportradar refuses it. Work through these in order:
+
+1. **Verify what the deployment actually has.** Click **🔍 Test API key** in the app header (or open `GET /api/status?probe=1`). It shows the masked key, the access level, and the exact endpoint, then fires one live request and tells you how Sportradar responded. Compare the mask against the key in your dashboard — a mismatch means the env var wasn't picked up or the wrong key was pasted.
+2. **Use the Tennis subscription's key.** Sportradar issues a separate key per API product. Signing up is not enough — in the marketplace you must add the **Tennis API trial**, then copy the key shown *for that subscription*.
+3. **Match the access level.** Trial keys only work with `SPORTRADAR_ACCESS_LEVEL=trial` (the default); production keys need `production`.
+4. **No stray characters.** Paste the key bare — no quotes, spaces, or newlines. (The app strips whitespace and wrapping quotes defensively, but a corrupted copy is a common cause.)
+5. **Vercel specifics.** Add the vars under *Project Settings → Environment Variables* for the right scope (Production/Preview), then **create a new deployment** — env vars are injected at deploy time, so the previous deployment keeps running without them.
+6. **HTTP 429 instead of 403?** The key is accepted but the trial quota is exhausted; it resets automatically after the quota window.
 
 ## Run it
 

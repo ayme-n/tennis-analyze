@@ -163,12 +163,26 @@ export class ProviderError extends Error {
   }
 }
 
+/** Result of inspecting (and optionally live-probing) the configured provider. */
+export interface ProviderDiagnosis {
+  connected: boolean;
+  /** Never the raw key — a short mask plus length, so deployments can be verified safely. */
+  keyMasked: string;
+  accessLevel: string;
+  /** The exact provider endpoint URL a request would hit (contains no secret). */
+  endpoint: string;
+  /** Present only when a live probe was requested. */
+  probe?: { ok: boolean; httpStatus: number | null; message: string };
+}
+
 /** The provider contract. Implementations: Sportradar (real), Demo (synthetic). */
 export interface TennisDataProvider {
   readonly id: string;
   readonly label: string;
   readonly connected: boolean;
   status(): Promise<{ connected: boolean; detail: string }>;
+  /** Inspect the live configuration; with `probe` also perform one real request. */
+  diagnose?(probe?: boolean): Promise<ProviderDiagnosis>;
   searchPlayers(query: string): Promise<DirectoryPlayer[]>;
   getPlayerProfile(id: string): Promise<PlayerProfile>;
   getRecentMatches(id: string): Promise<{ matches: NormalizedMatch[]; traces: SourceTrace[] }>;

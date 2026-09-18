@@ -15,6 +15,14 @@ interface ProviderStatus {
   label: string;
 }
 
+interface DiagnosisInfo {
+  connected: boolean;
+  keyMasked: string;
+  accessLevel: string;
+  endpoint: string;
+  probe?: { ok: boolean; httpStatus: number | null; message: string };
+}
+
 function SegRow({
   label,
   options,
@@ -42,6 +50,8 @@ function SegRow({
 
 export default function Home() {
   const [status, setStatus] = useState<ProviderStatus | null>(null);
+  const [diagnosis, setDiagnosis] = useState<DiagnosisInfo | null>(null);
+  const [probing, setProbing] = useState(false);
   const [demo, setDemo] = useState<DemoFlag>(false);
   const [playerA, setPlayerA] = useState<DirectoryPlayer | null>(null);
   const [playerB, setPlayerB] = useState<DirectoryPlayer | null>(null);
@@ -64,8 +74,30 @@ export default function Home() {
   useEffect(() => {
     void fetch("/api/status")
       .then((r) => r.json())
-      .then((d) => setStatus({ connected: !!d.provider?.connected, detail: d.provider?.detail ?? "", label: d.provider?.label ?? "" }))
+      .then((d) => {
+        setStatus({ connected: !!d.provider?.connected, detail: d.provider?.detail ?? "", label: d.provider?.label ?? "" });
+        if (d.diagnosis) setDiagnosis(d.diagnosis as DiagnosisInfo);
+      })
       .catch(() => setStatus({ connected: false, detail: "status check failed", label: "" }));
+  }, []);
+
+  const testKey = useCallback(async () => {
+    setProbing(true);
+    try {
+      const r = await fetch("/api/status?probe=1");
+      const d = await r.json();
+      setDiagnosis((d.diagnosis as DiagnosisInfo) ?? null);
+    } catch {
+      setDiagnosis({
+        connected: false,
+        keyMasked: "?",
+        accessLevel: "?",
+        endpoint: "?",
+        probe: { ok: false, httpStatus: null, message: "Could not reach /api/status on this server." },
+      });
+    } finally {
+      setProbing(false);
+    }
   }, []);
 
   const fetchPrep = useCallback(
@@ -186,6 +218,11 @@ export default function Home() {
         <span className={`badge ${demo ? "demo" : status === null ? "" : status.connected ? "ok" : "bad"}`}>
           {demo ? "⚠ DEMO — NOT REAL MATCH DATA" : status === null ? "checking provider…" : status.connected ? `● ${status.label}` : "○ Data provider not connected"}
         </span>
+        {status?.connected && !demo && (
+          <button className="btn" onClick={() => void testKey()} disabled={probing} title="Shows which key/access level this deployment uses and fires one live request to the provider.">
+            {probing ? "Testing key…" : "🔍 Test API key"}
+          </button>
+        )}
         <span className="spacer" />
         <label className="checkline" style={{ marginTop: 0 }} title="Synthetic data for trying the UI. Never used automatically.">
           <input
@@ -204,6 +241,28 @@ export default function Home() {
       </header>
 
       {demo && <div className="notice demo">DEMO — NOT REAL MATCH DATA. Synthetic fixtures for interface testing only; also printed in exports.</div>}
+      {diagnosis && !demo && (status?.connected ?? false) && (
+        <div className={`notice ${diagnosis.probe ? (diagnosis.probe.ok ? "info" : "err") : "info"}`}>
+          <b>Provider connection check.</b> This deployment is using key <code>{diagnosis.keyMasked}</code> at access level{" "}
+          <b>{diagnosis.accessLevel}</b>
+          {diagnosis.endpoint !== "(synthetic fixtures)" && (
+            <>
+              {" "}
+              → <code style={{ fontSize: 12 }}>{diagnosis.endpoint}</code>
+            </>
+          )}
+          {diagnosis.probe && (
+            <div style={{ marginTop: 6 }}>
+              Live probe: <b>{diagnosis.probe.httpStatus !== null ? `HTTP ${diagnosis.probe.httpStatus}` : "no response"}</b> — {diagnosis.probe.message}
+            </div>
+          )}
+          {!diagnosis.probe && (
+            <div style={{ marginTop: 6, color: "var(--muted)" }}>
+              Click <b>Test API key</b> to fire one live request and confirm the provider accepts this key.
+            </div>
+          )}
+        </div>
+      )}
       {needsSetup && (
         <div className="notice warn">
           <b>Data provider not connected.</b> This app never shows sample data as real. To connect real data: create a
